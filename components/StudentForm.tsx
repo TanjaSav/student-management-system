@@ -2,46 +2,33 @@
 
 import { useEffect, useState } from "react";
 import DropdownMenu from "@/components/DropdownMenu";
-import { Student, StudentStatus } from "@/types/student";
+import { useStudents } from "@/context/StudentsContext";
+import {
+  FormData,
+  StudentFormProps,
+  StudentPayload,
+  StudentStatus,
+} from "@/types/types";
 
-type FormData = {
-  firstName: string;
-  lastName: string;
-  age: string;
-  email: string;
-  course: string;
-  status: StudentStatus;
-  dateOfRegistration: string;
-};
-
-type StudentFormProps = {
-  editingStudent: Student | null;
-  isOpen: boolean;
-  onClose: () => void;
-  onAddStudent: (student: Omit<Student, "_id">) => Promise<void>;
-  onUpdateStudent: (id: string, student: Omit<Student, "_id">) => Promise<void>;
-  onCancelEdit: () => void;
-};
-
-// Predefined course options
+// Available course options for the student form
 const courses = [
   "Frontend Development",
   "Backend Development",
-  "Mobile Development",
   "UI/UX Design",
-  "Data Science",
+  "Marketing",
+  "Business Analytics",
 ];
 
 // Available student statuses
 const statuses: StudentStatus[] = ["active", "paused", "completed", "dropped"];
 
-// Convert courses into dropdown options
+// Convert course list into dropdown options
 const courseOptions = courses.map((course) => ({
   label: course,
   value: course,
 }));
 
-// Convert statuses into dropdown options
+// Convert status list into dropdown options
 const statusOptions = statuses.map((status) => ({
   label: status.charAt(0).toUpperCase() + status.slice(1),
   value: status,
@@ -51,36 +38,32 @@ const statusOptions = statuses.map((status) => ({
 const emptyForm: FormData = {
   firstName: "",
   lastName: "",
-  age: "16",
+  age: "",
   email: "",
-  course: courses[0],
+  course: "",
   status: "active",
   dateOfRegistration: "",
 };
 
-export default function StudentForm({
-  editingStudent,
-  isOpen,
-  onClose,
-  onAddStudent,
-  onUpdateStudent,
-  onCancelEdit,
-}: StudentFormProps) {
+export default function StudentForm({ isOpen, onClose }: StudentFormProps) {
+  // Access shared student state and actions from context
+  const { editingStudent, addStudent, updateStudent, setEditingStudent } = useStudents();
+
   // Local form state
   const [formData, setFormData] = useState<FormData>(emptyForm);
 
-  // Loading state for submit button
+  // Submission loading flag
   const [submitting, setSubmitting] = useState(false);
 
   // Error message shown under the form
   const [errorMessage, setErrorMessage] = useState("");
 
-  // Fixed date range: from 01 Jan 2015 until today
+  // Allowed date range for registration date
   const minDate = "2015-01-01";
   const maxDate = new Date().toISOString().split("T")[0];
 
-  // Fill form when editing a student, or reset form when adding a new one
   useEffect(() => {
+    // Pre-fill form fields when editing an existing student
     if (editingStudent) {
       setFormData({
         firstName: editingStudent.firstName,
@@ -91,12 +74,14 @@ export default function StudentForm({
         status: editingStudent.status,
         dateOfRegistration: editingStudent.dateOfRegistration,
       });
-    } else {
-      setFormData(emptyForm);
+      return;
     }
+
+    // Reset form when not editing
+    setFormData(emptyForm);
   }, [editingStudent, isOpen]);
 
-  // Handle text, number, email, and date input changes
+  // Handle all text/date input changes
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) {
@@ -104,27 +89,26 @@ export default function StudentForm({
     setFormData((prev) => ({ ...prev, [name]: value }));
   }
 
-  // Close modal and reset form state
+  // Reset form state and close modal
   function handleClose() {
     setFormData(emptyForm);
     setErrorMessage("");
-    onCancelEdit();
+    setEditingStudent(null);
     onClose();
   }
 
-  // Close modal when user clicks on backdrop
+  // Close modal only when clicking on the backdrop
   function handleBackdropClick(e: React.MouseEvent<HTMLDivElement>) {
     if (e.target === e.currentTarget) {
       handleClose();
     }
   }
 
-  // Validate first and last name
+  // Validate first and last names
   function isValidName(value: string) {
     return /^[A-Za-zÁáÐðÉéÍíÓóÚúÝýÞþÆæÖö\s-]+$/.test(value);
   }
 
-  // Submit form data for creating or updating a student
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSubmitting(true);
@@ -136,30 +120,26 @@ export default function StudentForm({
 
     // Validate first name
     if (!isValidName(firstName)) {
-      setErrorMessage(
-        "First name must contain only English or Icelandic letters."
-      );
+      setErrorMessage("First name must contain only English or Icelandic letters.");
       setSubmitting(false);
       return;
     }
 
     // Validate last name
     if (!isValidName(lastName)) {
-      setErrorMessage(
-        "Last name must contain only English or Icelandic letters."
-      );
+      setErrorMessage("Last name must contain only English or Icelandic letters.");
       setSubmitting(false);
       return;
     }
 
-    // Validate minimum age
+    // Validate age
     if (ageNumber < 16) {
       setErrorMessage("Student age must be 16 or older.");
       setSubmitting(false);
       return;
     }
 
-    // Validate date range
+    // Validate registration date
     if (
       formData.dateOfRegistration < minDate ||
       formData.dateOfRegistration > maxDate
@@ -169,8 +149,8 @@ export default function StudentForm({
       return;
     }
 
-    // Build payload for API request
-    const payload = {
+    // Build payload for create/update request
+    const payload: StudentPayload = {
       firstName,
       lastName,
       age: ageNumber,
@@ -183,18 +163,18 @@ export default function StudentForm({
     };
 
     try {
-      // Update existing student
+      // Update existing student if edit mode is active
       if (editingStudent?._id) {
-        await onUpdateStudent(editingStudent._id, payload);
+        await updateStudent(editingStudent._id, payload);
       } else {
-        // Add new student
-        await onAddStudent(payload);
+        // Otherwise create a new student
+        await addStudent(payload);
       }
 
-      // Reset form after successful submit
+      // Reset form and close modal after successful submission
       setFormData(emptyForm);
+      setEditingStudent(null);
       onClose();
-      onCancelEdit();
     } catch (error) {
       console.error("Form submit error:", error);
       setErrorMessage("Failed to save student.");
@@ -203,115 +183,132 @@ export default function StudentForm({
     }
   }
 
-  // Do not render modal if it is closed
+  // Do not render modal when it is closed
   if (!isOpen) return null;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
       onClick={handleBackdropClick}
     >
-      <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl">
-        <div className="mb-5 flex items-start justify-between gap-4">
-          <div>
-            
-            <h2 className="mt-1 text-xl font-bold text-slate-900">
-              {editingStudent ? "Edit Student" : "Add New Student"}
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Fill in the student information and save it
-            </p>
-          </div>
+      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+        {/* Modal header */}
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-gray-900">
+            {editingStudent ? "Edit Student" : "Add New Student"}
+          </h2>
 
-          {/* Close modal button */}
           <button
             type="button"
             onClick={handleClose}
-            className="rounded-xl border cursor-pointer border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            className="text-3xl font-bold cursor-pointer text-gray-500 transition hover:text-gray-700"
           >
-            X
+            ×
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3">
-          {/* First name input */}
-          <input
-            type="text"
-            name="firstName"
-            placeholder="First name"
-            value={formData.firstName}
-            onChange={handleChange}
-            pattern="[A-Za-zÁáÐðÉéÍíÓóÚúÝýÞþÆæÖö\s-]+"
-            title="Use only English or Icelandic letters"
-            required
-            className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm text-slate-800 outline-none transition focus:border-emerald-500"
-          />
+        {/* Student form */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* First and last name fields */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-1 block font-light text-xs text-gray-400">
+                First name
+              </label>
+              <input
+                type="text"
+                name="firstName"
+                placeholder="First name"
+                value={formData.firstName}
+                onChange={handleChange}
+                required
+                className="w-full text-xs rounded-lg border border-gray-300 px-4 py-2 outline-none transition focus:border-black"
+              />
+            </div>
 
-          {/* Last name input */}
-          <input
-            type="text"
-            name="lastName"
-            placeholder="Last name"
-            value={formData.lastName}
-            onChange={handleChange}
-            pattern="[A-Za-zÁáÐðÉéÍíÓóÚúÝýÞþÆæÖö\s-]+"
-            title="Use only English or Icelandic letters"
-            required
-            className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm text-slate-800 outline-none transition focus:border-emerald-500"
-          />
+            <div>
+              <label className="mb-1 block font-light text-xs text-gray-400">
+                Last name
+              </label>
+              <input
+                type="text"
+                name="lastName"
+                placeholder="Last name"
+                value={formData.lastName}
+                onChange={handleChange}
+                required
+                className="w-full text-xs rounded-lg border border-gray-300 px-4 py-2 outline-none transition focus:border-black"
+              />
+            </div>
+          </div>
 
-          {/* Age input with minimum value 16 */}
-          <input
-            type="number"
-            name="age"
-            placeholder="Age"
-            value={formData.age}
-            onChange={handleChange}
-            min={16}
-            required
-            className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm text-slate-800 outline-none transition focus:border-emerald-500"
-          />
+          
+            <div>
+              <label className="mb-1 block font-light text-xs text-gray-400">
+              Age
+              </label>
+              <input
+                type="number"
+                name="age"
+                placeholder="Age"
+                value={formData.age}
+                onChange={handleChange}
+                min={16}
+                required
+                className="w-full text-xs rounded-lg border border-gray-300 px-4 py-2 outline-none transition focus:border-black"
+              />
+            </div>
 
-          {/* Email input with English-only email pattern */}
-          <input
-            type="email"
-            name="email"
-            placeholder="Email address"
-            value={formData.email}
-            onChange={handleChange}
-            pattern="^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
-            title="Use only English letters. Example: name@email.com"
-            required
-            className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm text-slate-800 outline-none transition focus:border-emerald-500"
-          />
+            <div>
+              <label className="mb-1 block font-light text-xs text-gray-400">
+              Email
+              </label>
+              <input
+                type="email"
+                name="email"
+                placeholder="Email"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                className="w-full text-xs rounded-lg border border-gray-300 px-4 py-2 outline-none transition focus:border-black"
+              />
+            </div>
+          
 
-          {/* Custom dropdown for course selection */}
-          <DropdownMenu
-            value={formData.course}
-            options={courseOptions}
-            onChange={(course) =>
-              setFormData((prev) => ({ ...prev, course }))
-            }
-          />
-
-          {/* Custom dropdown for status selection */}
-          <DropdownMenu
-            value={formData.status}
-            options={statusOptions}
-            onChange={(status) =>
-              setFormData((prev) => ({
-                ...prev,
-                status: status as StudentStatus,
-              }))
-            }
-          />
-
-          {/* Date input with fixed allowed range */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-slate-700">
-              Registration Date
+          {/* Course dropdown */}
+          <div>
+            <label className="mb-1 block font-light text-xs text-gray-400">
+              Course
             </label>
+            <DropdownMenu
+              value={formData.course}
+              options={courseOptions}
+              onChange={(course) => setFormData((prev) => ({ ...prev, course }))}
+            />
+          </div>
 
+          {/* Status dropdown */}
+          <div>
+            <label className="mb-1 block font-light text-xs text-gray-400">
+              Status
+            </label>
+            <DropdownMenu
+              value={formData.status}
+              options={statusOptions}
+              onChange={(status) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  status: status as StudentStatus,
+                }))
+              }
+            />
+          </div>
+
+          {/* Registration date field */}
+          <div>
+            <label className="mb-1 block font-light text-xs text-gray-400">
+              Date of Registration
+            </label>
             <input
               type="date"
               name="dateOfRegistration"
@@ -320,33 +317,27 @@ export default function StudentForm({
               min={minDate}
               max={maxDate}
               required
-              className="
-                w-full rounded-2xl border border-slate-200 bg-slate-50
-                px-4 py-2 text-sm text-slate-800 outline-none transition
-                focus:border-emerald-500 focus:bg-white
-              "
+              className="w-full text-xs rounded-lg border border-gray-300 px-4 py-2 outline-none transition focus:border-black"
             />
           </div>
 
-          {/* Validation or submit error message */}
+          {/* Error message */}
           {errorMessage && (
-            <p className="text-sm font-medium text-rose-600">{errorMessage}</p>
+            <p className="text-xs text-red-600">{errorMessage}</p>
           )}
 
-          {/* Form action button */}
-          <div className="pt-1">
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full rounded-2xl bg-slate-900 cursor-pointer px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {submitting
-                ? "Saving..."
-                : editingStudent
-                ? "Update Student"
-                : "Add Student"}
-            </button>
-          </div>
+          {/* Submit button */}
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full rounded-lg bg-black px-4 py-2 font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {submitting
+              ? "Saving..."
+              : editingStudent
+              ? "Update Student"
+              : "Add Student"}
+          </button>
         </form>
       </div>
     </div>

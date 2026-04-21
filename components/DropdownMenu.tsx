@@ -2,29 +2,24 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
-
-type Option = {
-  label: string;
-  value: string;
-};
-
-type DropdownMenuProps = {
-  value: string;
-  options: Option[];
-  onChange: (value: string) => void;
-};
+import { DropdownMenuProps } from "@/types/types";
 
 export default function DropdownMenu({
   value,
   options,
   onChange,
 }: DropdownMenuProps) {
+  // Tracks open/closed dropdown state
   const [open, setOpen] = useState(false);
+
+  // Ref used to detect outside clicks
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
-  const selected = options.find((o) => o.value === value);
+  // Find the currently selected option by value
+  const selected = options.find((option) => option.value === value);
 
   useEffect(() => {
+    // Close dropdown when user clicks outside of it
     function handleClickOutside(event: MouseEvent) {
       if (
         dropdownRef.current &&
@@ -43,27 +38,24 @@ export default function DropdownMenu({
 
   return (
     <div ref={dropdownRef} className="relative w-full">
+      {/* Dropdown trigger button */}
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="
-          w-full rounded-xl border border-slate-200 px-4 py-2 text-sm
-          text-left text-slate-800 bg-white
-          flex items-center justify-between
-          transition hover:border-slate-300 focus:border-emerald-500
-        "
+        className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-2 text-left text-xs text-slate-800 transition hover:border-slate-300 focus:border-black"
       >
-        <span>{selected?.label}</span>
+        <span className="truncate">{selected?.label}</span>
 
         <ChevronDown
-          className={`h-5 w-5 text-slate-500 transition-transform ${
+          className={`h-5 w-5 shrink-0 text-slate-500 transition-transform ${
             open ? "rotate-180" : ""
           }`}
         />
       </button>
 
+      {/* Dropdown options */}
       {open && (
-        <div className="absolute left-0 right-0 z-20 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+        <div className="absolute left-0 right-0 z-20 mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
           {options.map((option) => (
             <button
               key={option.value}
@@ -72,7 +64,7 @@ export default function DropdownMenu({
                 onChange(option.value);
                 setOpen(false);
               }}
-              className="w-full px-4 py-2 text-left text-slate-800 cursor-pointer transition hover:bg-slate-50"
+              className="w-full px-4 py-2 text-left text-xs text-slate-800 transition hover:bg-slate-50"
             >
               {option.label}
             </button>
