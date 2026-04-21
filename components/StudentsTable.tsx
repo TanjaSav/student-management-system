@@ -1,34 +1,59 @@
 "use client";
 
-import { Student } from "@/types/student";
+import { Pencil, Trash2 } from "lucide-react";
+import { Student, StudentStatus } from "@/types/student";
 
-// Props for the StudentsTable component
 type StudentsTableProps = {
-  students: Student[];
+  students?: Student[];
   loading: boolean;
   onEdit: (student: Student) => void;
   onDelete: (id: string) => Promise<void>;
+  onAdd: () => void;
 };
 
+// Return color classes based on student status
+function getStatusClasses(status: StudentStatus) {
+  switch (status) {
+    case "active":
+      return "text-emerald-700";
+    case "paused":
+      return "text-amber-700";
+    case "completed":
+      return "text-sky-700";
+    case "dropped":
+      return "text-rose-700";
+    default:
+      return "bg-slate-100 text-slate-700";
+  }
+}
+
 export default function StudentsTable({
-  students,
+  students = [],
   loading,
   onEdit,
   onDelete,
+  onAdd,
 }: StudentsTableProps) {
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="mb-6 flex items-center justify-between gap-4">
-        <div>
-          <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-600">
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div className="flex w-full items-center px-4 justify-between">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-sky-700">
             Students List
           </p>
+        
 
-          <h2 className="mt-2 text-2xl font-bold text-slate-900">
-            Manage Records
-          </h2>
+          {/* Add student button under the title */}
+          <button
+            type="button"
+            onClick={onAdd}
+            className="text-sm font-semibold text-black-300 cursor-pointer transition hover:text-black-500"
+          >
+            + Add Student
+          </button>
         </div>
 
+        {/* Loading state */}
         {loading && (
           <span className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-500">
             Loading...
@@ -44,6 +69,8 @@ export default function StudentsTable({
               <th className="px-4 py-2">Age</th>
               <th className="px-4 py-2">Email</th>
               <th className="px-4 py-2">Course</th>
+              <th className="px-4 py-2">Date of Registration</th>
+              <th className="px-4 py-2">Status</th>
               <th className="px-4 py-2">Actions</th>
             </tr>
           </thead>
@@ -54,44 +81,61 @@ export default function StudentsTable({
                 key={student._id ?? `${student.email}-${student.firstName}`}
                 className="rounded-2xl bg-slate-50 text-slate-700 shadow-sm"
               >
-                <td className="rounded-l-2xl px-4 py-4">
+                <td className="rounded-l-2xl px-4 py-2">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-linear-to-br from-emerald-400 to-sky-500 font-bold text-white">
-                      {student.firstName.charAt(0)}
-                    </div>
-
+                   
                     <div>
-                      <p className="font-semibold text-slate-900">
+                      <p className="font-semibold text-sm text-slate-900">
                         {student.firstName} {student.lastName}
                       </p>
-                      <p className="text-sm text-slate-500">Student record</p>
+                      
                     </div>
                   </div>
                 </td>
 
-                <td className="px-4 py-4">{student.age}</td>
-                <td className="px-4 py-4">{student.email}</td>
-                <td className="px-4 py-4">{student.course}</td>
+                <td className="px-4 text-sm py-2">{student.age}</td>
+                <td className="px-4 text-sm py-2">{student.email}</td>
+                <td className="px-4 text-sm py-2">{student.course}</td>
 
-                <td className="rounded-r-2xl px-4 py-4">
-                  <div className="flex flex-wrap gap-2">
-                    {/* Edit button sends the full student object */}
+                <td className="px-4 text-sm py-2">
+                  {student.dateOfRegistration
+                    ? new Intl.DateTimeFormat("en-GB", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      }).format(new Date(student.dateOfRegistration))
+                    : "-"}
+                </td>
+
+                <td className="px-4 py-2">
+                  <span
+                    className={`inline-flex rounded-full px-3 py-2 text-sm font-semibold capitalize ${getStatusClasses(
+                      student.status
+                    )}`}
+                  >
+                    {student.status}
+                  </span>
+                </td>
+
+                <td className="rounded-r-2xl px-4 py-2">
+                  <div className="flex items-center gap-2">
                     <button
                       onClick={() => onEdit(student)}
-                      className="rounded-xl bg-amber-500 px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
+                      className="flex items-center justify-center p-2 text-green-600 cursor-pointer transition hover:scale-105 hover:opacity-90"
+                      title="Edit"
                     >
-                      Edit
+                      <Pencil className="h-4 w-4" />
                     </button>
 
-                    {/* Delete button only works if _id exists */}
                     <button
                       onClick={() => {
                         if (!student._id) return;
                         onDelete(student._id);
                       }}
-                      className="rounded-xl bg-rose-500 px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
+                      className="flex items-center justify-center  p-2 text-black-200 cursor-pointer transition hover:scale-105 hover:opacity-90"
+                      title="Delete"
                     >
-                      Delete
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 </td>
@@ -100,8 +144,8 @@ export default function StudentsTable({
 
             {!loading && students.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-12 text-center text-slate-500">
-                  No students found. Add your first student to get started.
+                <td colSpan={7} className="px-4 py-12 text-center text-slate-500">
+                  No students found. Add your first student to get started
                 </td>
               </tr>
             )}

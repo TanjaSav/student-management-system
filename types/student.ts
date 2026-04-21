@@ -1,4 +1,6 @@
 // Type definition for one student
+export type StudentStatus = "active" | "paused" | "completed" | "dropped";
+
 export type Student = {
   _id?: string;
   firstName: string;
@@ -6,6 +8,8 @@ export type Student = {
   age: number;
   email: string;
   course: string;
+  status: StudentStatus;
+  dateOfRegistration: string;
   createdAt?: string;
   updatedAt?: string;
 };

@@ -1,44 +1,48 @@
 "use client";
 
-import { useEffect, useReducer } from "react";
+import { useEffect, useReducer, useState } from "react";
 import StudentForm from "@/components/StudentForm";
 import StudentsTable from "@/components/StudentsTable";
 import { initialState, studentReducer } from "@/reducers/studentReducer";
 import { Student } from "@/types/student";
+import Image from "next/image";
 
-// Type for create/update requests without _id
 type StudentPayload = Omit<Student, "_id">;
 
 export default function HomePage() {
-  // useReducer is required by the assignment
+  // Reducer state for students, loading, and editing mode
   const [state, dispatch] = useReducer(studentReducer, initialState);
 
-  // Fetch students from the API
+  // Controls modal visibility
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Load all students from the API
   async function fetchStudents() {
     try {
       // Turn loading on
       dispatch({ type: "SET_LOADING", payload: true });
 
-      // Send GET request
       const response = await fetch("/api/students");
       const data = await response.json();
 
-      // If the API returns an error, save an empty array
       if (!response.ok) {
         console.error("API error:", data);
         dispatch({ type: "SET_STUDENTS", payload: [] });
         return;
       }
 
-      // Dispatch action to save students in state
+      // Save students into reducer state
       dispatch({
         type: "SET_STUDENTS",
-        payload: Array.isArray(data) ? data : [],
+        payload: Array.isArray(data)
+          ? data.map((student) => ({
+              ...student,
+              _id: String(student._id),
+            }))
+          : [],
       });
     } catch (error) {
       console.error("Fetch students error:", error);
-
-      // Save an empty array if something fails
       dispatch({ type: "SET_STUDENTS", payload: [] });
     } finally {
       // Turn loading off
@@ -46,12 +50,12 @@ export default function HomePage() {
     }
   }
 
-  // Load students on first page render
+  // Fetch students once when page loads
   useEffect(() => {
     fetchStudents();
   }, []);
 
-  // Add a new student
+  // Create a new student
   async function handleAddStudent(student: StudentPayload) {
     try {
       const response = await fetch("/api/students", {
@@ -68,7 +72,7 @@ export default function HomePage() {
         throw new Error(newStudent.error || "Failed to add student");
       }
 
-      // Dispatch action to add the new student to state
+      // Add new student into reducer state
       dispatch({
         type: "ADD_STUDENT",
         payload: {
@@ -78,10 +82,11 @@ export default function HomePage() {
       });
     } catch (error) {
       console.error("Add student error:", error);
+      throw error;
     }
   }
 
-  // Update an existing student
+  // Update existing student
   async function handleUpdateStudent(id: string, student: StudentPayload) {
     try {
       const response = await fetch(`/api/students/${id}`, {
@@ -98,7 +103,7 @@ export default function HomePage() {
         throw new Error(updatedStudent.error || "Failed to update student");
       }
 
-      // Dispatch action to update the student in state
+      // Update student in reducer state
       dispatch({
         type: "UPDATE_STUDENT",
         payload: {
@@ -108,10 +113,11 @@ export default function HomePage() {
       });
     } catch (error) {
       console.error("Update student error:", error);
+      throw error;
     }
   }
 
-  // Delete a student
+  // Delete student by id
   async function handleDeleteStudent(id: string) {
     const confirmed = window.confirm("Are you sure you want to delete this student?");
     if (!confirmed) return;
@@ -127,14 +133,20 @@ export default function HomePage() {
         throw new Error(result.error || "Failed to delete student");
       }
 
-      // Dispatch action to remove the student from state
+      // Remove student from reducer state
       dispatch({ type: "DELETE_STUDENT", payload: id });
     } catch (error) {
       console.error("Delete student error:", error);
     }
   }
 
-  // Set the selected student for editing
+  // Open modal for adding a new student
+  function handleOpenAddModal() {
+    dispatch({ type: "SET_EDITING_STUDENT", payload: null });
+    setIsModalOpen(true);
+  }
+
+  // Open modal for editing selected student
   function handleEditStudent(student: Student) {
     dispatch({
       type: "SET_EDITING_STUDENT",
@@ -143,9 +155,10 @@ export default function HomePage() {
         _id: String(student._id),
       },
     });
+    setIsModalOpen(true);
   }
 
-  // Cancel editing mode
+  // Reset editing mode
   function handleCancelEdit() {
     dispatch({ type: "SET_EDITING_STUDENT", payload: null });
   }
@@ -155,52 +168,34 @@ export default function HomePage() {
       <div className="mx-auto max-w-7xl">
         <section className="mb-8 rounded-4xl border border-slate-200 bg-white/80 p-8 shadow-sm backdrop-blur">
           <div className="grid gap-6 lg:grid-cols-[1.6fr_0.8fr] lg:items-center">
-            <div>
-
-              <h1 className="text-4xl font-bold tracking-tight text-slate-900 md:text-5xl">
+            <div className="flex gap-8 ">
+                <Image src={"/student-management-illustration.svg"} alt="Illustration of student management" width={50} height={16} className="w-12.5 h-13 object-cover" /> 
+              <h1 className="text-2xl mt-3 font-Semibold tracking-tight text-slate-900 md:text-3xl">
                 Student Management System
               </h1>
+            
+              
 
-             
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
-              <div className="rounded-3xl bg-slate-900 p-5 text-white shadow-sm">
-                <p className="text-sm text-slate-300">Total Students</p>
-
-                {/* Using reducer state in the UI */}
-                <p className="mt-2 text-4xl font-bold">{state.students.length}</p>
-              </div>
-
-              <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-                <p className="text-sm text-slate-500">Editing Mode</p>
-
-                {/* Using reducer state in the UI */}
-                <p className="mt-2 text-lg font-semibold text-slate-900">
-                  {state.editingStudent
-                    ? `${state.editingStudent.firstName} ${state.editingStudent.lastName}`
-                    : "No student selected"}
-                </p>
-              </div>
+            
             </div>
           </div>
         </section>
 
-        <div className="grid gap-8 lg:grid-cols-[380px_1fr]">
-          <StudentForm
-            editingStudent={state.editingStudent}
-            onAddStudent={handleAddStudent}
-            onUpdateStudent={handleUpdateStudent}
-            onCancelEdit={handleCancelEdit}
-          />
-
-          <StudentsTable
-            students={Array.isArray(state.students) ? state.students : []}
-            loading={state.loading}
-            onEdit={handleEditStudent}
-            onDelete={handleDeleteStudent}
-          />
-        </div>
+       <StudentsTable
+        students={Array.isArray(state.students) ? state.students : []}
+        loading={state.loading}
+        onEdit={handleEditStudent}
+        onDelete={handleDeleteStudent}
+        onAdd={handleOpenAddModal}
+      />
+        <StudentForm
+          editingStudent={state.editingStudent}
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onAddStudent={handleAddStudent}
+          onUpdateStudent={handleUpdateStudent}
+          onCancelEdit={handleCancelEdit}
+        />
       </div>
     </main>
   );
