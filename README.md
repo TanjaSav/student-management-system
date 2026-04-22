@@ -3,6 +3,10 @@
 This project is a Student Management System built using CRUD operations:
 Create, Read, Update, and Delete.
 
+### Demo Link
+
+https://student-management-system-zeta-dusky.vercel.app/
+
 ### Goal
 
 The goal was to demonstrate:
