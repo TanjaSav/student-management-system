@@ -8,7 +8,7 @@ type Context = {
   }>;
 };
 
-// PUT update student by id
+// Update student by id
 export async function PUT(request: Request, context: Context) {
   try {
     const db = await connectDB();
@@ -24,6 +24,22 @@ export async function PUT(request: Request, context: Context) {
       status,
       dateOfRegistration,
     } = body;
+
+    // Basic validation
+    if (
+      !firstName ||
+      !lastName ||
+      !age ||
+      !email ||
+      !course ||
+      !status ||
+      !dateOfRegistration
+    ) {
+      return NextResponse.json(
+        { error: "All fields are required" },
+        { status: 400 }
+      );
+    }
 
     if (Number(age) < 16) {
       return NextResponse.json(
@@ -43,20 +59,31 @@ export async function PUT(request: Request, context: Context) {
       updatedAt: new Date().toISOString(),
     };
 
-    const result = await db.collection("students").findOneAndUpdate(
+    const result = await db.collection("students").updateOne(
       { _id: new ObjectId(id) },
-      { $set: updatedStudent },
-      { returnDocument: "after" }
+      { $set: updatedStudent }
     );
 
-    if (!result) {
+    if (result.matchedCount === 0) {
       return NextResponse.json(
         { error: "Student not found" },
         { status: 404 }
       );
     }
 
-    return NextResponse.json(result, { status: 200 });
+    const student = await db.collection("students").findOne({
+      _id: new ObjectId(id),
+    });
+
+    return NextResponse.json(
+      student
+        ? {
+            ...student,
+            _id: student._id.toString(),
+          }
+        : null,
+      { status: 200 }
+    );
   } catch (error) {
     console.error("PUT /api/students/[id] error:", error);
 
@@ -70,7 +97,7 @@ export async function PUT(request: Request, context: Context) {
   }
 }
 
-// DELETE student by id
+// Delete student by id
 export async function DELETE(_request: Request, context: Context) {
   try {
     const db = await connectDB();

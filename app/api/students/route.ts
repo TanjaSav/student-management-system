@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 
-// GET all students
+// Get all students
 export async function GET() {
   try {
     const db = await connectDB();
@@ -26,7 +26,7 @@ export async function GET() {
   }
 }
 
-// POST new student
+// Create a new student
 export async function POST(request: Request) {
   try {
     const db = await connectDB();
@@ -80,7 +80,10 @@ export async function POST(request: Request) {
     const result = await db.collection("students").insertOne(newStudent);
 
     return NextResponse.json(
-      { _id: result.insertedId, ...newStudent },
+      {
+        _id: result.insertedId.toString(),
+        ...newStudent,
+      },
       { status: 201 }
     );
   } catch (error) {
